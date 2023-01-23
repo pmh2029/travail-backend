@@ -7,6 +7,7 @@ import (
 
 	"travail/config"
 	"travail/internal/app/myapi/router"
+	"travail/pkg/shared/database"
 	sharedLogger "travail/pkg/shared/logger"
 )
 
@@ -14,13 +15,15 @@ func main() {
 	logger := sharedLogger.NewLogger()
 	gin.SetMode(gin.DebugMode)
 
-	config.LoadConfig()
+	config.LoadConfig(logger)
 
 	engine := gin.New()
 	router := &router.Router{
 		Engine: engine,
-		DBConn: config.DBConn,
+		DBConn: config.LoadDB(logger),
 	}
+	
+	defer database.CloseDB(config.LoadDB(logger), logger)
 
 	router.InitializeRouter(logger)
 	router.SetupHandler()
