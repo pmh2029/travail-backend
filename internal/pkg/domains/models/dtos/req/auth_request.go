@@ -11,3 +11,7 @@ type UserSignUpRequest struct {
 	Email    string `json:"email" binding:"required"`
 	Password string `json:"password" binding:"required"`
 }
+
+type ForgotPassword struct {
+	Email string `json:"email" binding:"required"`
+}

@@ -14,6 +14,21 @@ import (
 	"travail/pkg/shared/database"
 )
 
+type OAuthConfig struct {
+	GoogleLoginConfig oauth2.Config
+}
+
+type GoogleUserInfo struct {
+	ID    string `json:"id"`
+	Email string `json:"email"`
+	Name  string `json:"name"`
+}
+
+var (
+	AppConfig  OAuthConfig
+	GoogleUser GoogleUserInfo
+)
+
 func LoadConfig(logger *logrus.Logger) {
 	LoadEnv(logger)
 	LoadDB(logger)

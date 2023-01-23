@@ -50,6 +50,7 @@ func (r *Router) SetupHandler() {
 				authAPI.POST("/signin", authHandler.SignIn)
 				authAPI.GET("/google/signin", authHandler.SignInWithGoogle)
 				authAPI.GET("/google/redirect", authHandler.Redirect)
+				authAPI.POST("/forgot_password", authHandler.ForgotPassword)
 			}
 		}
 }
