@@ -16,7 +16,7 @@ import (
 
 func LoadConfig(logger *logrus.Logger) {
 	LoadEnv(logger)
-	// LoadDB(logger)
+	LoadDB(logger)
 	LoadOAuthConfig()
 }
 
