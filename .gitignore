@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # API Service
 API_PORT=
 
@@ -23,6 +24,9 @@ JWT_SECRET_KEY=
 # OAuth2 service
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=# Binaries for programs and plugins
+=======
+# Binaries for programs and plugins
+>>>>>>> develop
 *.exe
 *.exe~
 *.dll

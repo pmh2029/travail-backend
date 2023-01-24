@@ -22,7 +22,6 @@ func main() {
 		Engine: engine,
 		DBConn: config.LoadDB(logger),
 	}
-	
 	defer database.CloseDB(config.LoadDB(logger), logger)
 
 	router.InitializeRouter(logger)
