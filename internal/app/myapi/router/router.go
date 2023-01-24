@@ -2,6 +2,7 @@ package router
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -23,7 +24,13 @@ type Router struct {
 func (r *Router) InitializeRouter(logger *logrus.Logger) {
 	r.Engine.Use(gin.Logger())
 	r.Engine.Use(gin.Recovery())
-	r.Engine.Use(cors.Default())
+	r.Engine.Use(cors.New(cors.Config{
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+		AllowHeaders:     []string{"Authorization", "Origin", "Content-Length", "Content-Type"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+		AllowAllOrigins:  true,
+	}))
 	r.Logger = logger
 }
 
@@ -40,18 +47,18 @@ func (r *Router) SetupHandler() {
 		c.JSON(http.StatusOK, data)
 	})
 
-		// router api
-		publicApi := r.Engine.Group("/api")
+	// router api
+	publicApi := r.Engine.Group("/api")
+	{
+		// auth
+		authAPI := publicApi.Group("/auth")
 		{
-			// auth
-			authAPI := publicApi.Group("/auth")
-			{
-				authAPI.POST("/signup", authHandler.SignUp)
-				authAPI.POST("/signin", authHandler.SignIn)
-				authAPI.GET("/google/signin", authHandler.SignInWithGoogle)
-				authAPI.GET("/google/redirect", authHandler.Redirect)
-				authAPI.POST("/forgot_password", authHandler.ForgotPassword)
-				authAPI.PATCH("/reset_password", authHandler.ResetPassword)
-			}
+			authAPI.POST("/signup", authHandler.SignUp)
+			authAPI.POST("/signin", authHandler.SignIn)
+			authAPI.GET("/google/signin", authHandler.SignInWithGoogle)
+			authAPI.GET("/google/redirect", authHandler.Redirect)
+			authAPI.POST("/forgot_password", authHandler.ForgotPassword)
+			authAPI.PATCH("/reset_password", authHandler.ResetPassword)
 		}
+	}
 }
