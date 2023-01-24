@@ -6,15 +6,33 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	"gorm.io/gorm"
 
 	"travail/internal/pkg/migrations"
 	"travail/pkg/shared/database"
 )
 
+type OAuthConfig struct {
+	GoogleLoginConfig oauth2.Config
+}
+
+type GoogleUserInfo struct {
+	ID    string `json:"id"`
+	Email string `json:"email"`
+	Name  string `json:"name"`
+}
+
+var (
+	AppConfig  OAuthConfig
+	GoogleUser GoogleUserInfo
+)
+
 func LoadConfig(logger *logrus.Logger) {
 	LoadEnv(logger)
 	LoadDB(logger)
+	LoadOAuthConfig()
 }
 
 func LoadEnv(logger *logrus.Logger) {
@@ -24,7 +42,7 @@ func LoadEnv(logger *logrus.Logger) {
 	}
 }
 
-func LoadDB(logger *logrus.Logger) *gorm.DB {
+func LoadDB(logger *logrus.Logger) *gorm.DB{
 	dbConfig := database.DBConfig{
 		Host:    os.Getenv("DB_HOST"),
 		Name:    os.Getenv("DB_NAME"),
@@ -50,6 +68,20 @@ func LoadDB(logger *logrus.Logger) *gorm.DB {
 		panic(err)
 	}
 	logger.Info("Migrate Database Success")
-	
+
 	return dbConn
+}
+
+func LoadOAuthConfig() {
+	// Oauth configuration for Google
+	AppConfig.GoogleLoginConfig = oauth2.Config{
+		ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
+		ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+		Endpoint:     google.Endpoint,
+		RedirectURL:  "http://localhost:8080/api/auth/google/redirect",
+		Scopes: []string{
+			"https://www.googleapis.com/auth/userinfo.email",
+			"https://www.googleapis.com/auth/userinfo.profile",
+		},
+	}
 }

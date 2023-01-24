@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"travail/internal/pkg/domains/models/dtos/res"
+	"travail/internal/pkg/handlers"
 )
 
 // Router is application struct
@@ -27,6 +28,8 @@ func (r *Router) InitializeRouter(logger *logrus.Logger) {
 }
 
 func (r *Router) SetupHandler() {
+	authHandler := handlers.NewUserHandler(r.DBConn)
+
 	// ping
 	r.Engine.GET("/ping", func(c *gin.Context) {
 		data := res.BaseResponse{
@@ -36,4 +39,19 @@ func (r *Router) SetupHandler() {
 		}
 		c.JSON(http.StatusOK, data)
 	})
+
+		// router api
+		publicApi := r.Engine.Group("/api")
+		{
+			// auth
+			authAPI := publicApi.Group("/auth")
+			{
+				authAPI.POST("/signup", authHandler.SignUp)
+				authAPI.POST("/signin", authHandler.SignIn)
+				authAPI.GET("/google/signin", authHandler.SignInWithGoogle)
+				authAPI.GET("/google/redirect", authHandler.Redirect)
+				authAPI.POST("/forgot_password", authHandler.ForgotPassword)
+				authAPI.PATCH("/reset_password", authHandler.ResetPassword)
+			}
+		}
 }
