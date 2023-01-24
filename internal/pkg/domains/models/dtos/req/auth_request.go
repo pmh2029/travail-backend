@@ -12,6 +12,11 @@ type UserSignUpRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
-type ForgotPassword struct {
+type ForgotPasswordRequest struct {
 	Email string `json:"email" binding:"required"`
+}
+
+type ResetPasswordRequest struct {
+	Email       string `json:"email" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required"`
 }

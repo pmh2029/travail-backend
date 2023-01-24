@@ -1,13 +1,20 @@
 package usecases
 
 import (
+	"bytes"
+	"crypto/tls"
 	"errors"
+	"os"
+	"text/template"
+	"time"
+
+	"gopkg.in/gomail.v2"
+
 	"travail/internal/pkg/domains/interfaces"
 	"travail/internal/pkg/domains/models/dtos/req"
 	"travail/internal/pkg/domains/models/entities"
 	"travail/pkg/shared/auth"
 	"travail/pkg/shared/utils"
-	"time"
 )
 
 type AuthUsecase struct {
@@ -73,4 +80,63 @@ func (authUsecase *AuthUsecase) SignIn(req req.UserSignInRequest) (user entities
 	}, time.Now().Add(time.Hour*72))
 
 	return user, token, err
+}
+
+func (authUsecase *AuthUsecase) SendMailForgotPassword(req req.ForgotPasswordRequest) error {
+	var body bytes.Buffer
+	t, err := template.ParseFiles("template/forgot_password_template.html")
+	if err != nil {
+		return err
+	}
+
+	user, err := authUsecase.AuthRepo.TakeByConditions(map[string]interface{}{
+		"email": req.Email,
+	})
+
+	t.Execute(&body, struct{ Name string }{Name: user.Username})
+
+	m := gomail.NewMessage()
+
+	// Set E-Mail sender
+	m.SetHeader("From", os.Getenv("TRAVAIL_EMAIL"))
+
+	// Set E-Mail receivers
+	m.SetHeader("To", req.Email)
+
+	// Set E-Mail subject
+	m.SetHeader("Subject", "Forgot Password")
+
+	// Set E-Mail body. You can set plain text or html with text/html
+	m.SetBody("text/html", body.String())
+
+	// Settings for SMTP server
+	d := gomail.NewDialer("smtp.gmail.com", 587, os.Getenv("TRAVAIL_EMAIL"), os.Getenv("TRAVAIL_APP_PASS"))
+
+	// This is only needed when SSL/TLS certificate is not valid on server.
+	// In production this should be set to false.
+	d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+
+	// Now send E-Mail
+	err = d.DialAndSend(m)
+
+	return err
+}
+
+func (authUsecase *AuthUsecase) ResetPassword(req req.ResetPasswordRequest) error {
+	user, err := authUsecase.AuthRepo.TakeByConditions(map[string]interface{}{
+		"email": req.Email,
+	})
+	if err != nil {
+		return err
+	}
+
+	hashPassword, err := utils.HashPassword(req.NewPassword)
+	if err != nil {
+		return err
+	}
+
+	user.Password = hashPassword
+	err = authUsecase.AuthRepo.ResetPassword(int(user.ID), user)
+
+	return err
 }

@@ -1,19 +1,14 @@
 package handlers
 
 import (
-	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
-	"text/template"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	gomail "gopkg.in/gomail.v2"
 	"gorm.io/gorm"
 
 	"travail/config"
@@ -154,7 +149,7 @@ func (authHandler *AuthHandler) Redirect(c *gin.Context) {
 	}
 
 	// Exchange Auth Code for Tokens
-	token, err := config.AppConfig.GoogleLoginConfig.Exchange(context.Background(), code)
+	oauthToken, err := config.AppConfig.GoogleLoginConfig.Exchange(context.Background(), code)
 
 	// ERROR : Auth Code Exchange Failed
 	if err != nil {
@@ -168,7 +163,7 @@ func (authHandler *AuthHandler) Redirect(c *gin.Context) {
 	}
 
 	// Fetch User Data from google server
-	response, err := http.Get(constants.OauthGoogleUrlAPI + token.AccessToken)
+	response, err := http.Get(constants.OauthGoogleUrlAPI + oauthToken.AccessToken)
 	// ERROR : Unable to get user data from google
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, res.BaseResponse{
@@ -257,7 +252,7 @@ func (authHandler *AuthHandler) Redirect(c *gin.Context) {
 }
 
 func (authHandler *AuthHandler) ForgotPassword(c *gin.Context) {
-	req := req.ForgotPassword{}
+	req := req.ForgotPasswordRequest{}
 
 	err := c.ShouldBindJSON(&req)
 	if err != nil {
@@ -270,8 +265,8 @@ func (authHandler *AuthHandler) ForgotPassword(c *gin.Context) {
 		return
 	}
 
-	var body bytes.Buffer
-	t, err := template.ParseFiles("template/forgot_password_template.html")
+	err = authHandler.AuthUsecase.SendMailForgotPassword(req)
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, res.BaseResponse{
 			Status: "failed",
@@ -282,39 +277,39 @@ func (authHandler *AuthHandler) ForgotPassword(c *gin.Context) {
 		return
 	}
 
-	t.Execute(&body, struct{ Name string }{Name: "Travail"})
-	// kykynbgfzqmjbgml
+	c.JSON(http.StatusOK, res.BaseResponse{
+		Status: "success",
+		Data:   gin.H{"message": "send success"},
+	})
+}
 
-	mimeHeaders := "MIME-version: 1.0;\nContent-Type: text/html; charset=\"UTF-8\";\n\n"
-	body.Write([]byte(fmt.Sprintf("Subject: This is a test subject \n%s\n\n", mimeHeaders)))
+func (authHandler *AuthHandler) ResetPassword(c *gin.Context) {
+	req := req.ResetPasswordRequest{}
 
-	m := gomail.NewMessage()
-
-	// Set E-Mail sender
-	m.SetHeader("From", "contact.me.travail@gmail.com")
-
-	// Set E-Mail receivers
-	m.SetHeader("To", "contact.me.travail@gmail.com")
-
-	// Set E-Mail subject
-	m.SetHeader("Subject", "Gomail test subject")
-
-	// Set E-Mail body. You can set plain text or html with text/html
-	m.SetBody("text/html", body.String())
-
-	// Settings for SMTP server
-	d := gomail.NewDialer("smtp.gmail.com", 587, "contact.me.travail@gmail.com", "kykynbgfzqmjbgml")
-
-	// This is only needed when SSL/TLS certificate is not valid on server.
-	// In production this should be set to false.
-	d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
-
-	// Now send E-Mail
-	if err := d.DialAndSend(m); err != nil {
-		fmt.Println(err)
-		panic(err)
+	err := c.ShouldBindJSON(&req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, res.BaseResponse{
+			Status: "failed",
+			Error: &res.ErrorResponse{
+				ErrorMessage: err.Error(),
+			},
+		})
+		return
 	}
 
-	return
+	err = authHandler.AuthUsecase.ResetPassword(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, res.BaseResponse{
+			Status: "failed",
+			Error: &res.ErrorResponse{
+				ErrorMessage: err.Error(),
+			},
+		})
+		return
+	}
 
+	c.JSON(http.StatusOK, res.BaseResponse{
+		Status: "success",
+		Data:   gin.H{"message": "reset password success"},
+	})
 }

@@ -51,6 +51,7 @@ func (r *Router) SetupHandler() {
 				authAPI.GET("/google/signin", authHandler.SignInWithGoogle)
 				authAPI.GET("/google/redirect", authHandler.Redirect)
 				authAPI.POST("/forgot_password", authHandler.ForgotPassword)
+				authAPI.PATCH("/reset_password", authHandler.ResetPassword)
 			}
 		}
 }

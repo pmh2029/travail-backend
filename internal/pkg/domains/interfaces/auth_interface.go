@@ -9,6 +9,7 @@ import (
 type AuthRepository interface {
 	SignUp(user entities.User) (entities.User, error)
 	TakeByConditions(conditions map[string]interface{}) (entities.User, error)
+	ResetPassword(userID int, user entities.User) error
 }
 
 // AuthUsecase interface
@@ -16,4 +17,6 @@ type AuthUsecase interface {
 	SignUp(req req.UserSignUpRequest) (entities.User, error)
 	TakeByConditions(conditions map[string]interface{}) (entities.User, error)
 	SignIn(req req.UserSignInRequest) (entities.User, string, error)
+	SendMailForgotPassword(req req.ForgotPasswordRequest) error
+	ResetPassword(req req.ResetPasswordRequest) error
 }

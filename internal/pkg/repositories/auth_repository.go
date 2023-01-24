@@ -29,3 +29,9 @@ func (authRepo *AuthRepository) TakeByConditions(conditions map[string]interface
 
 	return user, result.Error
 }
+
+func (authRepo *AuthRepository) ResetPassword(userID int, user entities.User) error {
+	result := authRepo.DBConn.Model(&user).Where("id = ?", userID).Updates(&user)
+
+	return result.Error
+}
