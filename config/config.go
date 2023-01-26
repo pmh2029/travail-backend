@@ -42,7 +42,7 @@ func LoadEnv(logger *logrus.Logger) {
 	}
 }
 
-func LoadDB(logger *logrus.Logger) *gorm.DB{
+func LoadDB(logger *logrus.Logger) *gorm.DB {
 	dbConfig := database.DBConfig{
 		Host:    os.Getenv("DB_HOST"),
 		Name:    os.Getenv("DB_NAME"),

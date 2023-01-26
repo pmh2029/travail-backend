@@ -2,15 +2,9 @@ package auth
 
 import (
 	"os"
-	"time"
 
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v4"
 )
-
-type JWTClaim struct {
-	MapClaim jwt.MapClaims
-	jwt.StandardClaims
-}
 
 // Decoding JWT to get payload, not verifying JWT
 func Decode(JWTToken string) (*jwt.Token, error) {
@@ -24,17 +18,10 @@ func Decode(JWTToken string) (*jwt.Token, error) {
 }
 
 // Generate HS256 JWT token
-func GenerateHS256JWT(payload map[string]interface{}, exprireAt time.Time) (string, error) {
-	mapClaims := jwt.MapClaims{}
+func GenerateHS256JWT(payload map[string]interface{}) (string, error) {
+	claims := jwt.MapClaims{}
 	for key, val := range payload {
-		mapClaims[key] = val
-	}
-
-	claims := &JWTClaim{
-		MapClaim: mapClaims,
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: exprireAt.Unix(),
-		},
+		claims[key] = val
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
