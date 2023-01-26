@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v4"
 	"gorm.io/gorm"
 
 	"travail/config"
@@ -96,16 +98,6 @@ func (authHandler *AuthHandler) SignIn(c *gin.Context) {
 }
 
 func (authHandler *AuthHandler) SignInWithGoogle(c *gin.Context) {
-	if c.Request.Method != "GET" {
-		c.JSON(http.StatusMethodNotAllowed, res.BaseResponse{
-			Status: "failed",
-			Error: &res.ErrorResponse{
-				ErrorMessage: "method not allowed",
-			},
-		})
-		return
-	}
-
 	// Create oauthState cookie
 	oauthState := utils.GenerateStateOauthCookie(c)
 	/*
@@ -119,17 +111,6 @@ func (authHandler *AuthHandler) SignInWithGoogle(c *gin.Context) {
 }
 
 func (authHandler *AuthHandler) Redirect(c *gin.Context) {
-	// check is method is correct
-	if c.Request.Method != "GET" {
-		c.JSON(http.StatusMethodNotAllowed, res.BaseResponse{
-			Status: "failed",
-			Error: &res.ErrorResponse{
-				ErrorMessage: "method not allowed",
-			},
-		})
-		return
-	}
-
 	// get oauth state from cookie for this user
 	oauthState, _ := c.Request.Cookie("oauthstate")
 	state := c.Request.FormValue("state")
@@ -224,7 +205,8 @@ func (authHandler *AuthHandler) Redirect(c *gin.Context) {
 		jwtToken, _ := auth.GenerateHS256JWT(map[string]interface{}{
 			"email":    config.GoogleUser.Email,
 			"username": config.GoogleUser.Name,
-		}, time.Now().Add(time.Hour*72))
+			"exp":      time.Now().Add(time.Hour * 72).Unix(),
+		})
 
 		c.JSON(http.StatusOK, res.BaseResponse{
 			Status: "success",
@@ -242,7 +224,8 @@ func (authHandler *AuthHandler) Redirect(c *gin.Context) {
 		jwtToken, _ := auth.GenerateHS256JWT(map[string]interface{}{
 			"email":    config.GoogleUser.Email,
 			"username": config.GoogleUser.Name,
-		}, time.Now().Add(time.Hour*72))
+			"exp":      time.Now().Add(time.Hour * 72).Unix(),
+		})
 
 		c.JSON(http.StatusOK, res.BaseResponse{
 			Status: "success",
@@ -268,7 +251,7 @@ func (authHandler *AuthHandler) ForgotPassword(c *gin.Context) {
 	err = authHandler.AuthUsecase.SendMailForgotPassword(req)
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, res.BaseResponse{
+		c.JSON(http.StatusBadRequest, res.BaseResponse{
 			Status: "failed",
 			Error: &res.ErrorResponse{
 				ErrorMessage: err.Error(),
@@ -283,11 +266,184 @@ func (authHandler *AuthHandler) ForgotPassword(c *gin.Context) {
 	})
 }
 
-func (authHandler *AuthHandler) ResetPassword(c *gin.Context) {
+func (authHandler *AuthHandler) VerifyResetPasswordLink(c *gin.Context) {
+	username := c.Param("username")
+	if username == "" {
+		c.JSON(http.StatusBadRequest, res.BaseResponse{
+			Status: "failed",
+			Error: &res.ErrorResponse{
+				ErrorMessage: "cannot get param username",
+			},
+		})
+		return
+	}
+
+	decodedUsername, err := base64.StdEncoding.DecodeString(username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, res.BaseResponse{
+			Status: "failed",
+			Error: &res.ErrorResponse{
+				ErrorMessage: "error while decode username" + err.Error(),
+			},
+		})
+		return
+	}
+
+	token := c.Param("token")
+	if token == "" {
+		c.JSON(http.StatusBadRequest, res.BaseResponse{
+			Status: "failed",
+			Error: &res.ErrorResponse{
+				ErrorMessage: "cannot get param token",
+			},
+		})
+		return
+	}
+
+	decodedToken, err := auth.Decode(token)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, res.BaseResponse{
+			Status: "failed",
+			Error: &res.ErrorResponse{
+				ErrorMessage: "error while decode jwt token" + err.Error(),
+			},
+		})
+		return
+	}
+
+	user, err := authHandler.AuthUsecase.TakeByConditions(map[string]interface{}{
+		"email": decodedToken.Claims.(jwt.MapClaims)["email"],
+	})
+	if err != nil {
+		c.JSON(http.StatusBadRequest, res.BaseResponse{
+			Status: "failed",
+			Error: &res.ErrorResponse{
+				ErrorMessage: err.Error(),
+			},
+		})
+		return
+	}
+
+	if string(decodedUsername) != user.Username {
+		c.JSON(http.StatusInternalServerError, res.BaseResponse{
+			Status: "failed",
+			Error: &res.ErrorResponse{
+				ErrorMessage: "invalid link underfine username",
+			},
+		})
+		return
+	}
+
+	verifyToken := auth.VerifyJWT(token)
+	if !verifyToken {
+		c.JSON(http.StatusInternalServerError, res.BaseResponse{
+			Status: "failed",
+			Error: &res.ErrorResponse{
+				ErrorMessage: "invalid link failed to verify token",
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, res.BaseResponse{
+		Status: "success",
+		Data:   gin.H{"message": "valid link"},
+	})
+}
+
+func (authHandler *AuthHandler) PatchResetPassword(c *gin.Context) {
+	username := c.Param("username")
+	if username == "" {
+		c.JSON(http.StatusBadRequest, res.BaseResponse{
+			Status: "failed",
+			Error: &res.ErrorResponse{
+				ErrorMessage: "cannot get param username",
+			},
+		})
+		return
+	}
+
+	decodedUsername, err := base64.StdEncoding.DecodeString(username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, res.BaseResponse{
+			Status: "failed",
+			Error: &res.ErrorResponse{
+				ErrorMessage: "error while decode username" + err.Error(),
+			},
+		})
+		return
+	}
+
+	token := c.Param("token")
+	if token == "" {
+		c.JSON(http.StatusBadRequest, res.BaseResponse{
+			Status: "failed",
+			Error: &res.ErrorResponse{
+				ErrorMessage: "cannot get param token",
+			},
+		})
+		return
+	}
+
+	decodedToken, err := auth.Decode(token)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, res.BaseResponse{
+			Status: "failed",
+			Error: &res.ErrorResponse{
+				ErrorMessage: "error while decode jwt token" + err.Error(),
+			},
+		})
+		return
+	}
+
+	user, err := authHandler.AuthUsecase.TakeByConditions(map[string]interface{}{
+		"email": decodedToken.Claims.(jwt.MapClaims)["email"],
+	})
+	if err != nil {
+		c.JSON(http.StatusBadRequest, res.BaseResponse{
+			Status: "failed",
+			Error: &res.ErrorResponse{
+				ErrorMessage: err.Error(),
+			},
+		})
+		return
+	}
+
+	if string(decodedUsername) != user.Username {
+		c.JSON(http.StatusInternalServerError, res.BaseResponse{
+			Status: "failed",
+			Error: &res.ErrorResponse{
+				ErrorMessage: "invalid link underfine username",
+			},
+		})
+		return
+	}
+
+	verifyToken := auth.VerifyJWT(token)
+	if !verifyToken {
+		c.JSON(http.StatusInternalServerError, res.BaseResponse{
+			Status: "failed",
+			Error: &res.ErrorResponse{
+				ErrorMessage: "invalid link failed to verify token",
+			},
+		})
+		return
+	}
+
 	req := req.ResetPasswordRequest{}
 
-	err := c.ShouldBindJSON(&req)
+	err = c.ShouldBindJSON(&req)
 	if err != nil {
+		c.JSON(http.StatusBadRequest, res.BaseResponse{
+			Status: "failed",
+			Error: &res.ErrorResponse{
+				ErrorMessage: err.Error(),
+			},
+		})
+		return
+	}
+
+	if req.Email != string(user.Email) {
 		c.JSON(http.StatusBadRequest, res.BaseResponse{
 			Status: "failed",
 			Error: &res.ErrorResponse{

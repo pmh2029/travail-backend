@@ -3,6 +3,7 @@ package usecases
 import (
 	"bytes"
 	"crypto/tls"
+	"encoding/base64"
 	"errors"
 	"os"
 	"text/template"
@@ -77,7 +78,8 @@ func (authUsecase *AuthUsecase) SignIn(req req.UserSignInRequest) (user entities
 	token, err = auth.GenerateHS256JWT(map[string]interface{}{
 		"username": user.Username,
 		"email":    user.Email,
-	}, time.Now().Add(time.Hour*72))
+		"exp":      time.Now().Add(time.Hour * 72).Unix(),
+	})
 
 	return user, token, err
 }
@@ -92,8 +94,26 @@ func (authUsecase *AuthUsecase) SendMailForgotPassword(req req.ForgotPasswordReq
 	user, err := authUsecase.AuthRepo.TakeByConditions(map[string]interface{}{
 		"email": req.Email,
 	})
+	if err != nil {
+		return err
+	}
 
-	t.Execute(&body, struct{ Name string }{Name: user.Username})
+	encodedUsername := base64.StdEncoding.EncodeToString([]byte(user.Username))
+
+	token, err := auth.GenerateHS256JWT(map[string]interface{}{
+		"email": user.Email,
+		"exp":   time.Now().Add(time.Minute * 15).Unix(),
+	})
+	if err != nil {
+		return err
+	}
+
+	resetPasswordUrl := "http://localhost:3000/api/auth/reset_password/" + encodedUsername + "/" + token
+
+	t.Execute(&body, struct {
+		Name string
+		Url  string
+	}{Name: user.Username, Url: resetPasswordUrl})
 
 	m := gomail.NewMessage()
 

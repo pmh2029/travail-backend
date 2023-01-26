@@ -1,10 +1,10 @@
 package repositories
 
 import (
+	"gorm.io/gorm"
+
 	"travail/internal/pkg/domains/interfaces"
 	"travail/internal/pkg/domains/models/entities"
-
-	"gorm.io/gorm"
 )
 
 type AuthRepository struct {
